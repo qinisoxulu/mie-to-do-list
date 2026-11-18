@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MIE Todo List Application</title>
+  <!-- External Stylesheet Link -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+
+  <!-- AUTH SECTION -->
+  <div id="auth-section">
+    <!-- Login Form -->
+    <div id="login-form-container">
+      <h2>Sign In</h2>
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="login-username" required>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="login-password" required>
+        </div>
+        <button type="submit" style="width: 100%;">Login</button>
+        <div id="login-error" class="error-msg"></div>
+      </form>
+      <div class="auth-switch">
+        Don't have an account? <a onclick="toggleAuth(true)">Register here</a>
+      </div>
+    </div>
+
+    <!-- Register Form -->
+    <div id="register-form-container" class="hidden">
+      <h2>Create Account</h2>
+      <form id="register-form" onsubmit="handleRegister(event)">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="reg-username" required>
+        </div>
+        <div class="form-group">
+          <label>First Name</label>
+          <input type="text" id="reg-firstname" required>
+        </div>
+        <div class="form-group">
+          <label>Last Name</label>
+          <input type="text" id="reg-lastname" required>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="reg-password" required>
+        </div>
+        <button type="submit" style="width: 100%;">Register</button>
+        <div id="reg-error" class="error-msg"></div>
+      </form>
+      <div class="auth-switch">
+        Already have an account? <a onclick="toggleAuth(false)">Login here</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD SECTION -->
+  <div id="dashboard-section" class="hidden">
+    <div class="header-bar">
+      <div>
+        <h2>My Todo Dashboard</h2>
+        <span id="user-welcome" style="color: #64748b; font-size: 14px;"></span>
+      </div>
+      <button class="btn-secondary" onclick="handleLogout()">Logout</button>
+    </div>
+
+    <!-- Add Todo Form -->
+    <h3>Add New Event / Todo</h3>
+    <form class="todo-form-grid" onsubmit="handleAddTodo(event)">
+      <div class="form-group" style="margin: 0;">
+        <label>Title</label>
+        <input type="text" id="todo-title" placeholder="Task title" required>
+      </div>
+      <div class="form-group" style="margin: 0;">
+        <label>Description</label>
+        <input type="text" id="todo-desc" placeholder="Details">
+      </div>
+      <div class="form-group" style="margin: 0;">
+        <label>Due Date & Time</label>
+        <input type="datetime-local" id="todo-due" required>
+      </div>
+      <button type="submit">Add Task</button>
+    </form>
+
+    <!-- Todo List Table -->
+    <h3>Coming Events & Tasks</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>Title</th>
+        <th>Description</th>
+        <th>Due Date</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+      </thead>
+      <tbody id="todo-table-body">
+      <!-- Dynamically populated -->
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+  const API_BASE = 'http://localhost:8080/api';
+  let authToken = localStorage.getItem('token') || '';
+  let currentUsername = localStorage.getItem('username') || '';
+
+  if (authToken) {
+    showDashboard();
+  }
+
+  function toggleAuth(showRegister) {
+    document.getElementById('login-form-container').classList.toggle('hidden', showRegister);
+    document.getElementById('register-form-container').classList.toggle('hidden', !showRegister);
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    const username = document.getElementById('login-username').value;
+    const password = document.getElementById('login-password').value;
+    const errorDiv = document.getElementById('login-error');
+    errorDiv.textContent = '';
+
+    try {
+      const res = await fetch(`${API_BASE}/users/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      if (!res.ok) throw new Error('Invalid username or password');
+      const data = await res.json();
+
+      authToken = data.token;
+      currentUsername = data.username;
+      localStorage.setItem('token', authToken);
+      localStorage.setItem('username', currentUsername);
+
+      showDashboard();
+    } catch (err) {
+      errorDiv.textContent = err.message;
+    }
+  }
+
+  async function handleRegister(e) {
+    e.preventDefault();
+    const username = document.getElementById('reg-username').value;
+    const firstName = document.getElementById('reg-firstname').value;
+    const lastName = document.getElementById('reg-lastname').value;
+    const password = document.getElementById('reg-password').value;
+    const errorDiv = document.getElementById('reg-error');
+    errorDiv.textContent = '';
+
+    try {
+      const res = await fetch(`${API_BASE}/users/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, firstName, lastName, password })
+      });
+      if (!res.ok) throw new Error('Registration failed. Username may already exist.');
+
+      alert('Registration successful! Please login.');
+      toggleAuth(false);
+    } catch (err) {
+      errorDiv.textContent = err.message;
+    }
+  }
+
+  function handleLogout() {
+    authToken = '';
+    currentUsername = '';
+    localStorage.removeItem('token');
+    localStorage.removeItem('username');
+    document.getElementById('dashboard-section').classList.add('hidden');
+    document.getElementById('auth-section').classList.remove('hidden');
+  }
+
+  function showDashboard() {
+    document.getElementById('auth-section').classList.add('hidden');
+    document.getElementById('dashboard-section').classList.remove('hidden');
+    document.getElementById('user-welcome').textContent = `Logged in as: ${currentUsername}`;
+    fetchTodos();
+  }
+
+  async function fetchTodos() {
+    try {
+      const res = await fetch(`${API_BASE}/todos`, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch todos');
+      const todos = await res.json();
+
+      const tbody = document.getElementById('todo-table-body');
+      tbody.innerHTML = '';
+
+      if (todos.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #64748b;">No tasks found. Add one above!</td></tr>`;
+        return;
+      }
+
+      todos.forEach(todo => {
+        const tr = document.createElement('tr');
+        const formattedDate = todo.dueDate ? new Date(todo.dueDate).toLocaleString() : 'No Due Date';
+
+        tr.innerHTML = `
+                    <td><strong>${escapeHtml(todo.title)}</strong></td>
+                    <td>${escapeHtml(todo.description || '')}</td>
+                    <td>${formattedDate}</td>
+                    <td>${todo.completed ? '<span class="badge-completed">Completed</span>' : '<span class="badge-pending">Pending</span>'}</td>
+                    <td>
+                        ${!todo.completed ? `<button class="btn-success" onclick="markComplete('${todo.id}')" style="padding: 5px 10px; font-size: 12px; margin-right: 5px;">Complete</button>` : ''}
+                        <button class="btn-danger" onclick="deleteTodo('${todo.id}')" style="padding: 5px 10px; font-size: 12px;">Delete</button>
+                    </td>
+                `;
+        tbody.appendChild(tr);
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function handleAddTodo(e) {
+    e.preventDefault();
+    const title = document.getElementById('todo-title').value;
+    const description = document.getElementById('todo-desc').value;
+    const dueDate = document.getElementById('todo-due').value;
+
+    try {
+      const res = await fetch(`${API_BASE}/todos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ title, description, dueDate: dueDate ? dueDate + ":00" : null })
+      });
+      if (!res.ok) throw new Error('Failed to create todo');
+
+      document.getElementById('todo-title').value = '';
+      document.getElementById('todo-desc').value = '';
+      document.getElementById('todo-due').value = '';
+      fetchTodos();
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  async function markComplete(id) {
+    try {
+      const res = await fetch(`${API_BASE}/todos/${id}/complete`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      if (!res.ok) throw new Error('Failed to update task');
+      fetchTodos();
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  async function deleteTodo(id) {
+    if (!confirm('Are you sure you want to delete this task?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/todos/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      if (!res.ok) throw new Error('Failed to delete task');
+      fetchTodos();
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+</script>
+
+</body>
+</html>
